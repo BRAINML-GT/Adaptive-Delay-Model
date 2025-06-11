@@ -1,5 +1,5 @@
 # Adaptive Delay Model (ADM) 
-## Code comming soon
+## Code will release soon
 
 **Title:** Learning Time-Varying Multi-Region Communications via Scalable Markovian Gaussian Processes (ICML 2025 Oral)   
 **Authors:** Weihan Li, Yule Wang, Chengrui Li, Anqi Wu  
