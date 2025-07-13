@@ -1,0 +1,11 @@
+matplotlib==3.10.3
+numpy==2.3.0
+pandas==2.3.0
+scikit-learn==1.7.0
+scipy==1.15.3
+torch==2.7.1+cu128
+torchaudio==2.7.1+cu128
+torchvision==0.22.1+cu128
+tornado==6.5.1
+tqdm==4.67.1
+cca-zoo==2.6.0
