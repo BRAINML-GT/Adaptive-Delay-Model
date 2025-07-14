@@ -115,8 +115,6 @@ def first_filtering_element(
     m1 = A @ m0 # state.mean
     P1 = A @ P0 @ A.T + Q # state.covariance
     S1 = C @ P1 @ C.T + R
- 
-    # S1 = S1 + 1e-6 * torch.eye(N, dtype=S1.dtype, device=S1.device)
 
     K1 = torch.linalg.solve(S1, (C @ P1)).mT
     # A1 = torch.zeros_like(A)
@@ -152,7 +150,6 @@ def generic_filtering_element(
     Q = Q.squeeze(0)
 
     S = C @ Q @ C.T + R
-    # S = S + 1e-6 * torch.eye(N, dtype=S.dtype, device=S.device)
 
     K = torch.linalg.solve(S, C @ Q).mT
     A1 = A - K @ C @ A
@@ -202,190 +199,6 @@ def filtering_operator(
     J = temp2 @ J2 @ A1 + J1
 
     return (A, b, C, J, eta)
-
-# def first_filtering_element(A, C, Q, R, m0, P0, y):
-#     """
-#     Equivalent of the JAX version, but using PyTorch linalg.
-#     """
-#     S = C @ Q @ C.T + R
-#     # We do a Cholesky factor (lower), then we might invert or solve.
-#     # L = torch.linalg.cholesky(S)
-#     # We'll replicate jsc.linalg.cho_factor(...) => in PyTorch, use L as is.
-
-#     m1 = A @ m0 # state.mean
-#     P1 = A @ P0 @ A.T + Q # state.covariance
-#     S1 = C @ P1 @ C.T + R
-
-#     # K1 = S1^{-1} (H P1)^T => K1 = torch.linalg.solve(S1, H@P1).T
-#     K1 = torch.linalg.solve(S1, (C @ P1)).mT
-#     A1 = torch.zeros_like(A)
-#     b = m1 + K1 @ (y[..., None] - C @ m1)
-#     # b = m1 + K1 @ (y - C @ m1)
-    
-#     # unstable version:
-#     # C1 = P1 - K1 @ S1 @ K1.mT
-#     # state version:
-#     factor = torch.eye(P1.shape[0], dtype=P1.dtype, device=P1.device) - K1 @ C
-#     C1 = factor @ P1 @ factor.mT + K1 @ R @ K1.mT
-
-#     # For the pair (J, eta)
-#     # J = F.T H.T S^{-1} H F,  eta = F.T H.T S^{-1} y
-#     # S = L @ L.T => S^{-1} y => triangular_solve, etc.
-#     # But simpler: solve y => we do triangular_solve on L then L.T, or just torch.linalg.solve(S, y).
-#     # We'll do it directly:
-#     y_sol = torch.linalg.solve(S.unsqueeze(0).expand(y.shape[0], -1, -1), y)
-#     # y_sol = torch.linalg.solve(S, y)
-
-#     HF_sol = torch.linalg.solve(S, C @ A)
-#     eta = A.mT @ C.T @ y_sol[..., None]
-#     # eta = A.mT @ C.T @ y_sol
-#     J = A.mT @ C.T @ HF_sol
-
-#     return A1, b, C1, J, eta
-
-
-# def generic_filtering_element(A, C, Q, R, y):
-#     """
-#     Generic element for all subsequent observations
-#     """
-
-#     A = A.squeeze(0)
-#     Q = Q.squeeze(0)
-
-#     S = C @ Q @ C.T + R
-#     # S = L L.T
-#     # K = Q F^T H^T S^{-1}, etc. but let's replicate the formula from JAX code
-
-#     # K = S^{-1} (H Q)^T => K = torch.linalg.solve(S, (H @ Q).T).T
-#     K = torch.linalg.solve(S, C @ Q).mT
-#     A1 = A - K @ C @ A
-#     b = K @ y[..., None]
-#     # b = K @ y
-#     # unstable version:
-#     # C1 = Q - K @ C @ Q
-#     # stable version:
-#     factor = torch.eye(Q.shape[0], dtype=Q.dtype, device=Q.device) - K @ C
-#     C1 = factor @ Q @ factor.mT + K @ R @ K.mT
-
-#     # For the pair (J, eta)
-
-#     y_sol = torch.linalg.solve(S.unsqueeze(0).expand(y.shape[0], -1, -1), y)
-#     # y_sol = torch.linalg.solve(S, y)
-#     HF_sol = torch.linalg.solve(S, C @ A)
-#     eta = A.T @ C.mT @ y_sol[..., None]
-#     # eta = A.T @ C.mT @ y_sol
-#     J = A.T @ C.mT @ HF_sol
-
-#     return A1, b, C1, J, eta
-
-
-# def make_associative_filtering_elements(As, C, Qs, R, m0, P0, observations):
-#     """
-#     Build the parallel filtering elements in a batched manner using vmap.
-#     """
-#     # Handle the first observation separately
-#     first_elems = first_filtering_element(As[0], C, Qs[0], R, m0, P0, observations[:, 0])  # returns (A, b, C, J, eta)
-
-#     # If there's only one observation, we won't have "generic" observations to vmap over.
-#     # if observations.shape[1] > 1:
-#     # We map `generic_filtering_element` over observations[1:]
-#     A_batched, b_batched, C_batched, J_batched, eta_batched = vmap(
-#         lambda A, Q, y: generic_filtering_element(A, C, Q, R, y), in_dims=1, out_dims=0
-#     # )(As.expand(1, -1, -1, -1), Qs.expand(1, -1, -1, -1), observations)
-#     )(As[1:].expand(1, -1, -1, -1), Qs[1:].expand(1, -1, -1, -1), observations[:, 1:])
-
-#     # A_batched, b_batched, C_batched, J_batched, eta_batched = vmap(
-#     #     lambda y: generic_filtering_element(A, C, Q, R, y), in_dims=0, out_dims=0
-#     # )(observations[0, 1:])
-#     # else:
-#     #     # If T=1, create empty tensors that match the shapes of A, b, C, J, eta
-#     #     A_batched  = torch.empty((0, *first_elems[0].shape), dtype=first_elems[0].dtype)
-#     #     b_batched  = torch.empty((0, *first_elems[1].shape), dtype=first_elems[1].dtype)
-#     #     C_batched  = torch.empty((0, *first_elems[2].shape), dtype=first_elems[2].dtype)
-#     #     J_batched  = torch.empty((0, *first_elems[3].shape), dtype=first_elems[3].dtype)
-#     #     eta_batched= torch.empty((0, *first_elems[4].shape), dtype=first_elems[4].dtype)
-
-#     # Now we prepend the first element (unsqueezed) to the “generic” elements
-#     # in order to have a batch dimension of size T.
-#     A_total   = torch.cat([first_elems[0].unsqueeze(0), A_batched],   dim=0)
-#     b_total   = torch.cat([first_elems[1].unsqueeze(0), b_batched],   dim=0)
-#     C_total   = torch.cat([first_elems[2].unsqueeze(0), C_batched],   dim=0)
-#     J_total   = torch.cat([first_elems[3].unsqueeze(0), J_batched],   dim=0)
-#     eta_total = torch.cat([first_elems[4].unsqueeze(0), eta_batched], dim=0)
-
-#     # A_total = A_batched
-#     # b_total = b_batched
-#     # C_total = C_batched
-#     # J_total = J_batched
-#     # eta_total = eta_batched
-
-#     return (A_total, b_total, C_total, J_total, eta_total)
-
-# @torch.jit.script
-# def filtering_operator(
-#     elem1: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
-#     elem2: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
-#     ):
-#     """
-#     Associative filtering operator, vectorized with vmap.
-#     """
-#     A1, b1, C1, J1, eta1 = elem1
-#     A2, b2, C2, J2, eta2 = elem2
-#     dim = A1.shape[-1]
-#     I = torch.eye(dim, dtype=A1.dtype, device=A1.device)
-
-#     # I + C1 @ J2
-#     I_C1J2 = I + C1 @ J2
-#     # Solve for [I_C1J2.T]^-1 * A2.T => triangular_solve in general, but let's do a generic solve
-#     # NOTE: this is just a generic solve, not necessarily triangular.
-#     # We'll do "temp = torch.linalg.solve(I_C1J2.T, A2.T).T"
-#     # print(I_C1J2.shape, A2.shape)
-#     temp = torch.linalg.solve(I_C1J2.mT, A2.mT).mT
-#     # temp = _spd_solve(I_C1J2.mT, A2.mT).mT
-#     # print("pass")
-
-#     A = temp @ A1
-#     b = temp[:, None, :, :] @ (b1 + C1[:,None,:,:] @ eta2) + b2
-#     C = temp @ C1 @ A2.mT + C2
-
-#     # I + J2 @ C1
-#     I_J2C1 = I + J2 @ C1
-#     temp2 = torch.linalg.solve(I_J2C1.mT, A1).mT
-#     # temp2 = _spd_solve(I_J2C1.mT, A1).mT
-
-#     eta = temp2[:,None,:,:] @ (eta2 - J2[:,None,:,:] @ b1) + eta1
-#     J = temp2 @ J2 @ A1 + J1
-
-#     return (A, b, C, J, eta)
-
-
-# def filter(observations, A, C, Q, R, m0, P0):
-#     """
-#     Parallel Kalman Filter
-#     """
-#     # Build the initial elements
-#     initial_elements = make_associative_filtering_elements(A, C, Q, R, m0, P0, observations)
-#     # Apply associative_scan in forward direction
-#     # final_elements = associative_scan(filtering_operator, initial_elements)
-
-#     _, b, c, J_hist, eta_hist = associative_scan(filtering_operator, initial_elements, dim = 0, reverse=False)
-
-    
-#     # return final_elements[1], final_elements[2]  # (means, covariances)
-#     # print(J_hist.shape, eta_hist.shape)
-#     # P_hist = torch.linalg.inv(J_hist)              # (T, d, d)
-
-#     # # --- broadcast P over the batch axis ----------------------------------
-#     # B = eta_hist.size(1)                           # 100
-#     # P_hist_b = P_hist.unsqueeze(1).expand(-1, B, -1, -1)   # (T, B, d, d)
-
-#     # # filtered means  (T, B, d, 1)
-#     # m_hist = torch.matmul(P_hist_b, eta_hist)
-
-#     # # print(b.shape,c.shape, m_hist.shape, P_hist.shape)
-#     # # return m_hist, P_hist                          # P_hist is (T, d, d)
-#     return b, c
-
 
 # The following code for sequential Kalmen Filter is adapted from https://github.com/raphaelreme/torch-kf
 
@@ -994,9 +807,6 @@ class KalmanFilter:
                                                                 kalman_gains, 
                                                                 covariance_diffs, 
                                                                 kalman_gains.mT)
-
-        # pairwise_covs = (torch.einsum('tbij,tjk->tbik', out_covariance[:-1], process_matrix.mT) + 
-        #                 torch.einsum('tbij,tbjk->tbik', kalman_gains, covariance_diffs))
 
         pairwise_covs = torch.einsum('tbij,tbjk->tbik', out_covariance[1:], kalman_gains.mT)
 
