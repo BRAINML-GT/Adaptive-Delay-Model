@@ -232,12 +232,8 @@ class SSM(nn.Module):
     def _smooth_delay(self, delays: Tensor, kernel: Tensor) -> Tensor:
         k = kernel.size(-1)
         pad_right  = k - 1          # makes output length = T
-
         x = delays.T.unsqueeze(1)   # (N,1,T)
-
         x_pad = F.pad(x, (0, pad_right), mode="reflect")
-        # x_pad = F.pad(x, (pad_left, pad_right), mode="constant", value=0.0)
-        # print(x_pad.shape, kernel.repeat(x.size(0), 1, 1).shape, x.shape)
         y  = F.conv1d(x_pad,
                         kernel.repeat(x.size(1), 1, 1),
                         groups=x.size(1)
