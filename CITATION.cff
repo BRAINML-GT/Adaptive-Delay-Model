@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite both the ADM paper and the underlying mbrila framework."
+title: "Adaptive Delay Model (ADM)"
+authors:
+  - family-names: Li
+    given-names: Weihan
+  - family-names: Wang
+    given-names: Yule
+  - family-names: Li
+    given-names: Chengrui
+  - family-names: Wu
+    given-names: Anqi
+repository-code: "https://github.com/BRAINML-GT/Adaptive-Delay-Model"
+license: MIT
+preferred-citation:
+  type: conference-paper
+  title: "Learning Time-Varying Multi-Region Brain Communications via Scalable Markovian Gaussian Processes"
+  authors:
+    - family-names: Li
+      given-names: Weihan
+    - family-names: Wang
+      given-names: Yule
+    - family-names: Li
+      given-names: Chengrui
+    - family-names: Wu
+      given-names: Anqi
+  collection-title: "Proceedings of the 42nd International Conference on Machine Learning"
+  publisher:
+    name: "PMLR"
+  year: 2025
+  start: 36021
+  end: 36041

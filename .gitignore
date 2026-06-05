@@ -1,7 +1,19 @@
-./states/*
-./res/*
-
+# Python
 __pycache__/
-**/__pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Demo outputs
+demo_outputs/
+examples/demo_outputs/
+
+# OS
+.DS_Store
